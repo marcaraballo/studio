@@ -8,6 +8,7 @@ export interface Expense {
   payerId: string;
   amount: number;
   description: string;
+  splitWithParticipantIds?: string[]; // New field: IDs of participants to split this expense with
 }
 
 export interface Debt {

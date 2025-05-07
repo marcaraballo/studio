@@ -26,36 +26,44 @@ export default function BillBalancerPage() {
   const handleAddParticipant = (name: string) => {
     const newParticipant: Participant = { id: generateId(), name };
     setParticipants((prev) => [...prev, newParticipant]);
-    // Automatically recalculate debts when participants change might be too aggressive.
-    // Let user click "Calculate" button.
-    setDebts([]); // Clear previous debts
+    setDebts([]); 
   };
 
   const handleRemoveParticipant = (id: string) => {
     const participantToRemove = participants.find(p => p.id === id);
     setParticipants((prev) => prev.filter((p) => p.id !== id));
-    // Remove expenses paid by this participant
-    setExpenses((prev) => prev.filter((e) => e.payerId !== id));
-    setDebts([]); // Clear previous debts
+    
+    setExpenses((prevExpenses) => {
+      // Remove expenses paid by this participant
+      let updatedExpenses = prevExpenses.filter((e) => e.payerId !== id);
+      // Also, remove the participant from any 'splitWithParticipantIds' arrays
+      updatedExpenses = updatedExpenses.map(exp => ({
+        ...exp,
+        splitWithParticipantIds: exp.splitWithParticipantIds?.filter(pid => pid !== id)
+      }));
+      return updatedExpenses;
+    });
+
+    setDebts([]); 
     if (participantToRemove) {
       toast({
         title: "Participant Removed",
-        description: `${participantToRemove.name} and their expenses have been removed.`,
+        description: `${participantToRemove.name} and their associated expenses/splits have been updated.`,
         variant: "destructive"
       });
     }
   };
 
-  const handleAddExpense = (payerId: string, amount: number, description: string) => {
-    const newExpense: Expense = { id: generateId(), payerId, amount, description };
+  const handleAddExpense = (payerId: string, amount: number, description: string, splitWithParticipantIds: string[]) => {
+    const newExpense: Expense = { id: generateId(), payerId, amount, description, splitWithParticipantIds };
     setExpenses((prev) => [...prev, newExpense]);
-    setDebts([]); // Clear previous debts
+    setDebts([]); 
   };
 
   const handleRemoveExpense = (id: string) => {
     const expenseToRemove = expenses.find(e => e.id === id);
     setExpenses((prev) => prev.filter((e) => e.id !== id));
-    setDebts([]); // Clear previous debts
+    setDebts([]); 
     if (expenseToRemove) {
       toast({
         title: "Expense Removed",
@@ -66,15 +74,25 @@ export default function BillBalancerPage() {
   };
 
   const handleCalculateDebts = () => {
-    if (participants.length < 2) {
-      toast({
-        title: "Not enough participants",
-        description: "Please add at least two participants to calculate debts.",
+    if (participants.length < 2 && expenses.length > 0) { // Allow calculation if 1 person paid for something, effectively they paid for themselves.
+       toast({
+        title: "Needs more participants",
+        description: "Add at least two participants to see how debts are split. If only one participant paid, they owe nothing to others.",
         variant: "destructive",
       });
       setDebts([]);
       return;
     }
+     if (participants.length === 0 && expenses.length > 0) {
+        toast({
+            title: "No participants",
+            description: "Add participants to calculate debts.",
+            variant: "destructive",
+        });
+        setDebts([]);
+        return;
+    }
+
     if (expenses.length === 0 && participants.length > 0) {
        toast({
         title: "No Expenses",
@@ -96,6 +114,8 @@ export default function BillBalancerPage() {
         title: "All Settled!",
         description: "Looks like everyone is even, or no debts to show.",
       });
+    } else if (participants.length > 0 && expenses.length === 0) {
+        // This case is handled by the "No Expenses" toast above.
     }
   };
 
@@ -137,7 +157,7 @@ export default function BillBalancerPage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center"><ReceiptText className="mr-2 h-6 w-6 text-primary" />Expenses</CardTitle>
-              <CardDescription>Log who paid for what.</CardDescription>
+              <CardDescription>Log who paid for what and who to split with.</CardDescription>
             </CardHeader>
             <CardContent>
               <ExpenseForm participants={participants} onAddExpense={handleAddExpense} />
@@ -154,7 +174,7 @@ export default function BillBalancerPage() {
               <CardDescription>Who owes whom and how much.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button onClick={handleCalculateDebts} className="w-full mb-4" disabled={participants.length < 1}>
+              <Button onClick={handleCalculateDebts} className="w-full mb-4" disabled={participants.length === 0 && expenses.length === 0}>
                 <Calculator className="mr-2 h-5 w-5" /> Calculate Debts
               </Button>
               <DebtSummary debts={debts} />
