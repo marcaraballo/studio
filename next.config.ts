@@ -1,7 +1,13 @@
 import type {NextConfig} from 'next';
 
+const isProd = process.env.NODE_ENV === 'production';
+
 const nextConfig: NextConfig = {
   /* config options here */
+  output:'export',
+  basePath: isProd ? '/studio': '',
+  assetPrefix: isProd ? '/studio/':'',
+  trailingSlash: true,
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -18,6 +24,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  webpack: (config) => {
+    config.output.publicPath = isProd ? '/studio/_next/' : '/_next/';
+    return config
+  },
 };
 
-export default nextConfig;
+export default nextConfig
